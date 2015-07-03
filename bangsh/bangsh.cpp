@@ -46,15 +46,64 @@ namespace Bangsh
 {
     Bang::Thread thread;
 
+    class ShParsingContext;
+
+    class ShEofMarker : public Bang::Ast::Base
+    {
+    public:
+        ShParsingContext& parsectx_;
+        ShEofMarker( ShParsingContext& ctx )
+//        : Base( kEofMarker ),
+        : Base( kBreakProg ),
+          parsectx_(ctx)
+        {}
+
+        void repl_prompt() const
+        {
+        }
+
+        Bang::Ast::Program* getNextProgram( const Bang::Ast::CloseValue* closeValueChain ) const
+        {
+            std::cerr << "ShEofMarker::getNextProgram\n";
+//             while (true)
+//             {
+//                 try {
+//                     auto rc = parseStdinToProgram( parsectx_, closeValueChain );
+//                     return rc;
+//                 } catch (std::exception&e) {
+//                     std::cout << "a08 Error: " << e.what() << "\n";
+//                     parsectx_.interact.repl_prompt();
+//                 }
+//             }
+        }
+        
+        virtual void dump( int level, std::ostream& o ) const
+        {
+//            indentlevel(level, o);
+            o << "<<< EOF >>>\n";
+        }
+    };
+    
+    class ShParsingContext : public Bang::ParsingContext
+    {
+    public:
+        ShParsingContext( Bang::InteractiveEnvironment& i )
+        : Bang::ParsingContext(i)
+        {
+        }
+        Bang::Ast::Base* hitEof( const Bang::Ast::CloseValue* uvchain )
+        {
+            return new ShEofMarker( *this );
+        }
+    };
+
     void eval_bang_code( Bang::Stack& stack, const Bang::RunContext& ctx )
     {
         Bang::InteractiveEnvironment interact;
 
         const char* fname = "/tmp/dostuff.bang";
 
-        // interact.repl_prompt();
-    
-        Bang::ParsingContext parsectx( interact );
+        ShParsingContext parsectx( interact );
 
         const auto& v = stack.pop();
         const auto& vstr = v.tostr();
@@ -64,9 +113,7 @@ namespace Bangsh
             try
             {
                 Bang::RegurgeString strmFile( vstr );
-//                Bang::RequireKeyword requireMain( fname );
-                auto prog = ParseToProgram( parsectx, strmFile, false, nullptr );
-//                Bang::Stack stack;
+                auto prog = Bang::ParseToProgram( parsectx, strmFile, false, nullptr );
                 stack.giveTo( thread.stack );
                 RunProgram( &thread, prog, std::shared_ptr<Bang::Upvalue>() );
                 thread.stack.giveTo( stack );

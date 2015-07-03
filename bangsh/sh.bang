@@ -2,6 +2,7 @@
 'c:/m/bangproj/curses/release/bangcurses' crequire! as curses
 
 'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+'c:/m/n2proj/bang/lib/iterate.bang' require! as iterate
 
 curses.initscr!
 curses.raw!
