@@ -1,0 +1,303 @@
+
+'c:/m/bangproj/curses/release/bangcurses' crequire! as curses
+
+'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+
+curses.initscr!
+curses.raw!
+curses.noecho!
+curses.keypad!
+
+curses.make-window! as win
+win.getmaxx! as win-width
+win.getmaxy! as win-height
+-- win-width win-height "Welcome, window width=%s height=%s\n" print!
+
+'stringlib' crequire! as string
+'arraylib' crequire! as array
+'bangnylon' crequire! as nsys
+
+def :win-msg-at = { as y as x
+  format! as msg
+  x y msg win.mvaddstr!
+}
+
+def :array-erase-to-end a = { as beg
+  def! :inner = {
+    '#' a! beg >
+    ? beg a.erase
+      inner!
+  }
+}
+
+def :array-erase-range a = { as end as beg
+  end beg - 
+  def! :inner nCharsToDelete = {
+--     beg end nCharsToDelete 'erase-range beg=%s end=%s nCharsToDelete=%s' 0 win-height 4 - win-msg-at!
+     nCharsToDelete 0 > ? 
+       beg a.erase
+       nCharsToDelete 1 - inner!
+  }
+}
+
+def :array-snip-to-end a = { as beg
+  def! :inner = {
+    '#' a! beg >
+    ? beg a! -- push it on the stack
+      beg a.erase
+      inner!
+  }
+}
+
+def :array-insert-stack arr = { as at
+   def! :inner = {
+     # 0 > ?
+     at arr.insert
+     inner!
+   }
+}
+
+def :clear-line col = { as end as beg
+   beg col win.move!
+   beg
+   def! :inner curr = {
+     curr end < ?
+       ' ' win.addstr!
+       curr 1 + inner!
+   }
+}
+
+def :iswordchar c = {
+   c 123 < 
+   c 64 >
+   and!
+}
+
+def :find-previous-word lineArray = { as startpos -- line string.len! as len
+   startpos 1 - -- len < not! ? len 1 - : startpos;
+   def! :findwordchar currPos = {
+      currPos 1 < ? 0 :
+      currPos lineArray!
+        -- string.byte!
+        -- 66
+        iswordchar! ? currPos : currPos 1 - findwordchar!
+   }
+   def! :untilnonword currPos = {
+      currPos 1 < ? 0 :
+      currPos 1 - lineArray!
+        -- string.byte!
+        -- 32
+        iswordchar! ? currPos 1 - untilnonword! : currPos
+   }
+}
+
+def :find-next-word lineArray = {as startpos
+   '#' lineArray! as theEnd
+   startpos -- theEnd < ? startpos 1 + : theEnd;
+   def! :findwordchar currPos = {
+      currPos theEnd < ? 
+        currPos lineArray!
+        iswordchar! ? currPos : currPos 1 + findwordchar!;
+      : theEnd  
+   }
+   def! :untilnonword currPos = {
+      currPos theEnd < ? 
+        currPos  lineArray!
+        iswordchar! ? currPos 1 + untilnonword! : currPos;
+      : theEnd
+   }
+}
+
+
+------------------------------------------------------------------
+-- Library for exec'ing bang lines
+------------------------------------------------------------------
+
+'release/bangsh' crequire! as bangsh
+
+
+
+
+win-height 2 - as cmdline-col
+win-height 3 - as showstack-col
+cmdline-col 1 + as showline-col
+
+def :show-stack = {
+  # as ssize
+  0 ssize
+  def! :inner remain = { as nshown
+    -- 0 8 remain '%@ showing stack\n' format! win.mvaddstr!
+    remain 0 > ? {
+      as v
+      0  showstack-col nshown -
+      nshown 9 > ? '' : ' '; nshown v tostring! "%@%@: %@" format!
+      win.mvaddstr!
+      nshown 1 + remain 1 - inner!
+    }
+  }
+}
+
+def :show-stack-clear = {
+  # as ssize
+  0 ssize
+  def! :inner remain = { as nshown
+    -- 0 8 remain '%@ showing stack\n' format! win.mvaddstr!
+    remain 0 > ? {
+      as v
+      0  showstack-col nshown -
+      '                                                              ' win.mvaddstr!
+      nshown 1 + remain 1 - inner!
+    }
+  }
+}
+
+
+
+------------------------------------------------------------------
+-- :wait-for-line accepts a string, clears out the last when it's displayed
+------------------------------------------------------------------
+def :wait-for-line line = {
+    line (save-stack!)
+    def! :inner prevstack = { as line
+         0 showline-col
+         line "Last: %@" format!
+       win.mvaddstr!
+       prevstack! line bangsh.eval!
+       save-stack! as newstack
+       newstack! show-stack!
+       yield! -- caller should send line
+       (newstack! show-stack-clear!)
+       5 (line string.len! 5+) showline-col clear-line!
+       newstack inner!
+    }
+}
+wait-for-line coroutine! as handle-line
+
+------------------------------------------------------------------
+-- 'build-line' line editing coroutine.  Accepts characters, processes
+-- with emacs like keystroks.
+-- When line completion is signalled (carriage return) the line is
+-- passed to 'handle-line'.
+------------------------------------------------------------------
+
+def :rebind varname = {
+   fun thefun = varname thefun rebind-fun!
+}
+
+def :make-edit-state = { as clipboard as cpos
+  fun = lookup
+}
+
+fun = {
+  5 as prompt-start
+  array.new! as cmdline
+  0 'clipboard-text' make-edit-state! 
+  def! :cursor-pos editState = {
+    editState.cpos as cp
+    editState.clipboard as clipboard
+  
+    -- guard against invalid cursor position
+    -- will these be treated as tail call?
+    cp 0 < ? 0 cursor-pos! :   
+    cp '#' cmdline! > ?  '#' cmdline! cursor-pos! :
+
+    cmdline.push! string.from-bytes! as cmdline-str
+      0 cmdline-col
+      cmdline-str 'CMD> %s ' format!
+    win.mvaddstr!
+    cp 5 + cmdline-col win.move!
+    
+    yield-nil! as c
+
+      # cp c clipboard 'buildit, stk=%@ cp=%@ char=%s clip=%s      ' format! as status
+      status string.len! as slen win-width slen - 1 - cmdline-col 1 + status win.mvaddstr!
+      -- current cursor pos is pushed on the stack; cases update cursor pos
+ cp
+fun! = {
+       c 8 = ? { cp 0 > ? cp 1 - cmdline.erase
+                          1 - }
+     : c 1 = ? drop! 0  -- Ctrl+A
+     : c 2 = c 260 = or! ? 1 -      
+     : c 4 = ? { cp '#' cmdline! < ? cp cmdline.erase }
+     : c 5 = ? drop! '#' cmdline! -- Ctrl+E
+     : c 6 = c 261 = or! ? 1 + -- Ctrl+F
+     : c 11 = ? {
+                   prompt-start + '#' cmdline!  prompt-start + cmdline-col clear-line!
+                   (cp cmdline array-snip-to-end! string.from-bytes!) as snipped
+--                    snipped editState rebind.clipboard!
+                   cp snipped make-edit-state! cursor-pos! -- unfortunately this isn't tail position
+                   }
+     : c 13 = ? {  drop! cmdline.push! string.from-bytes! handle-line!
+                    prompt-start
+                      '#' cmdline!  prompt-start +
+                        cmdline-col
+                          clear-line!
+                   0 cmdline array-erase-to-end!
+                   0 }
+     : c 18 = ? -- Ctrl+R - reverse history search
+--     : c 19 = ? -- Ctrl+S 
+     : c 25  = ?  (clipboard string.to-bytes! cp cmdline array-insert-stack!) clipboard string.len! +
+     : c 32  < ?  -- discard unhandled control characters
+     : c 128 < ? c cp cmdline.insert -- printable characters
+                 1 +
+     : c 259 = c 16 = or! ? -- Up/Ctrl+P
+     : c 258 = c 14 = or! ? -- Down/Ctrl+N
+     : c 418 = ? cmdline find-previous-word! -- M-b, back word
+     : c 419 = ? -- M-c, capitalize word
+     : c 420 = ? -- M-d, delete word
+                 prompt-start + '#' cmdline!  prompt-start + cmdline-col clear-line!
+                 cp cmdline find-next-word! as pos-end 
+                 cp pos-end cmdline array-erase-range!
+                 cp
+     : c 422 = ? cmdline find-next-word!-- M-f, forward word
+     : c 441 = ? -- M-y, yank loop
+}
+-- now we reloop, binding the cursor position on the stack back to cp
+editState rebind.cpos! cursor-pos!
+
+  }
+}
+coroutine! as build-line
+build-line!
+
+def :try-getch self = {
+    'Bang! Shell, Welcome.\n' print!
+    1 def! :loopforever timesCalled = {
+      fun=self.schedule!; curses.nylon-getch! yield! as thechar
+      -- 0 1 # self.coro thechar 'woke after char, stk=%@ coro=%@ char=%s\n' format! win.mvaddstr!
+      thechar 3 = ? (!); -- generates an error (apply with no argument)
+      thechar build-line! -- # 0 > ? handle-line!;)
+      timesCalled 1 + loopforever!
+    }
+}
+
+try-getch nylon.cord! as getches
+
+def :winrefresher col = {
+  0.050 -- seconds for delayTime
+  fun self = { as delayTime
+      -- 'enter refresh cord!\n' print!
+      1 
+      def! :loopforever timesCalled = {
+          0 col
+          nsys.uptime! timesCalled delayTime '%s WinRefresh loop called %s times, sleeping %@s!\n' format!
+        win.mvaddstr!
+        win.refresh!
+        delayTime self.sleep!
+        timesCalled 1 + loopforever!
+      }
+  }
+  nylon.cord! as timeloop
+}
+
+
+--timelooper 10 win-height 2 - range!
+-- timelooper 11 15 range!
+-- 20 timelooper!
+
+-- win-height 1 - winrefresher!
+
+nylon.runloop!
+
+
+

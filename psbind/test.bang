@@ -1,0 +1,50 @@
+
+'Release/psbind' crequire! as Pshell
+'c:/m/n2proj/bang/lib/hof.bang' require! as Hof
+
+Hof.map as map
+Pshell.run as shell
+
+
+def :print-date = { as date
+  date.year date.month date.day
+  date.hour date.minute date.second date.millisecond
+  '%@-%@-%@ %@:%@:%@.%@' print!
+}
+
+-- 'date is=' print! 'get-date' shell! print-date! ''@
+
+'c:/m/n2proj/bang/lib/format-table.bang' require! .format-table as format-table
+'length' 'fullname' 'extension' format-table! as ft-files
+
+'get-childitem *.cpp' shell! ft-files!
+-- ft-files!
+-- save-stack! drop!
+
+-- fun obj = {
+--     'time=' print! obj.lastwritetime print-date!
+--     obj.length obj.fullname ' length=%@ file=%@\n' print!
+-- } map!
+-- ft-files!
+
+
+
+
+
+-- 'c:/m/n2proj/bang/lib/format-table.bang' require! .format-table as format-table
+--- 'id' 'processname' format-table! as ft-procs
+--- -- 
+--- -- fun = { 'PID' as id 'Process Name' as processname fun=lookup }!
+--- 'get-process b*' shell!
+--- -- ft-procs!
+--- 
+--- fun proc = {
+---     -- proc.starttime print-date!
+---     proc.id proc.processname
+---     ' id=%@ name=%@\n'
+---     --proc.totalprocessortime.totalseconds ' id=%@ name=%@ proctime=%@\n'
+---     print!
+--- }
+--- map!
+--- 
+
