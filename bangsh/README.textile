@@ -1,0 +1,15 @@
+h1. BangSh, a simple shell like environment for working with Bang! language
+
+BangSh provides a simple curses based interface for working with
+a "Bang! interpreter":https://github.com/dmattp/bang.  Bang code can be entered at a command prompt and
+the stack results will be displayed by BangSh.
+
+Line editing supports typical emacs keybindings (M-b backward word, M-f forward word, M-d delete word,
+C-a beg of line, C-e end of line etc&).
+
+BangSh is written mostly in Bang! and requires "Nylon for Bang!":https://github.com/dmattp/bangproj/bangnylon
+and "curses for Bang!":https://github.com/dmattp/bangproj/curses.  For a windows environment, the
+"Bang! powershell bindings":https://github.com/dmattp/bangproj/psbind provide access to a good mess of
+system functionality within the Bang! environment. 
+
+
