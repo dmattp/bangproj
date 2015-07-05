@@ -45,26 +45,27 @@ namespace Bang
 namespace Bangsh
 {
     Bang::Thread thread;
+    Bang::SHAREDUPVALUE lastUvChain;
+//     const Bang::Ast::CloseValue* lastUvChain = nullptr;
 
     class ShParsingContext;
 
-    class ShEofMarker : public Bang::Ast::Base
+    class ShEofMarker : public Bang::Ast::EofMarker
     {
     public:
         ShParsingContext& parsectx_;
-        ShEofMarker( ShParsingContext& ctx )
-//        : Base( kEofMarker ),
-        : Base( kBreakProg ),
-          parsectx_(ctx)
-        {}
+        const Bang::Ast::CloseValue* uvchain_;
+        ShEofMarker( ShParsingContext& ctx, const Bang::Ast::CloseValue* uvchain );
 
-        void repl_prompt() const
+        void repl_prompt( Bang::Stack& ) const
         {
+            // std::cerr << "ShEofMarker::repl_prompt\n";
         }
 
-        Bang::Ast::Program* getNextProgram( const Bang::Ast::CloseValue* closeValueChain ) const
+        virtual Bang::Ast::Program* getNextProgram( Bang::SHAREDUPVALUE closeValueChain ) const
         {
-            std::cerr << "ShEofMarker::getNextProgram\n";
+//            std::cerr << "ShEofMarker::getNextProgram\n";
+            lastUvChain = closeValueChain;
 //             while (true)
 //             {
 //                 try {
@@ -75,6 +76,7 @@ namespace Bangsh
 //                     parsectx_.interact.repl_prompt();
 //                 }
 //             }
+            return nullptr; // allow break prog, we'll pick the upval chain back up on re-entry
         }
         
         virtual void dump( int level, std::ostream& o ) const
@@ -93,11 +95,17 @@ namespace Bangsh
         }
         Bang::Ast::Base* hitEof( const Bang::Ast::CloseValue* uvchain )
         {
-            return new ShEofMarker( *this );
+//            std::cerr << "ShParsingContext::hitEof\n";
+            return new ShEofMarker( *this, uvchain );
         }
     };
 
-    void eval_bang_code( Bang::Stack& stack, const Bang::RunContext& ctx )
+    ShEofMarker::ShEofMarker( ShParsingContext& ctx, const Bang::Ast::CloseValue* uvchain )
+    : Bang::Ast::EofMarker( ctx ),
+      parsectx_(ctx)
+    {}
+    
+    void eval_more_bang_code( Bang::Stack& stack, const Bang::RunContext& ctx )
     {
         Bang::InteractiveEnvironment interact;
 
@@ -108,14 +116,15 @@ namespace Bangsh
         const auto& v = stack.pop();
         const auto& vstr = v.tostr();
         
-        do
+//        do
         {
             try
             {
                 Bang::RegurgeString strmFile( vstr );
-                auto prog = Bang::ParseToProgram( parsectx, strmFile, false, nullptr );
+                const Bang::Ast::CloseValue* closeValueChain = lastUvChain ? lastUvChain->upvalParseChain() : static_cast<const Bang::Ast::CloseValue*>(nullptr);
+                auto prog = Bang::ParseToProgram( parsectx, strmFile, false, closeValueChain );
                 stack.giveTo( thread.stack );
-                RunProgram( &thread, prog, std::shared_ptr<Bang::Upvalue>() );
+                RunProgram( &thread, prog, lastUvChain );
                 thread.stack.giveTo( stack );
                 // thread.stack.dump( std::cout );
             }
@@ -124,7 +133,7 @@ namespace Bangsh
                 std::cerr << "Error: " << e.what() << std::endl;
             }
         }
-        while (interact.bEof);
+//        while (interact.bEof);
     }
     
     void bangsh_lookup( Bang::Stack& stack_, const Bang::RunContext& rc_ )
@@ -134,7 +143,7 @@ namespace Bangsh
         {
             const std::string& msg = v.tostr();
             if (msg == "eval")
-                stack_.push( &eval_bang_code );
+                stack_.push( &eval_more_bang_code );
         }
     }
 }
