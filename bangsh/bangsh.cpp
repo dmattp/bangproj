@@ -62,6 +62,11 @@ namespace Bangsh
             // std::cerr << "ShEofMarker::repl_prompt\n";
         }
 
+        virtual void report_error( const std::exception& e ) const
+        {
+            std::cerr << "CRAP.01a Error: " << e.what() << std::endl;
+        }
+        
         virtual Bang::Ast::Program* getNextProgram( Bang::SHAREDUPVALUE closeValueChain ) const
         {
 //            std::cerr << "ShEofMarker::getNextProgram\n";
@@ -111,6 +116,8 @@ namespace Bangsh
 
         const char* fname = "/tmp/dostuff.bang";
 
+        const auto& errHandler = stack.pop();
+        
         ShParsingContext parsectx( interact );
 
         const auto& v = stack.pop();
@@ -130,7 +137,10 @@ namespace Bangsh
             }
             catch( const std::exception& e )
             {
-                std::cerr << "Error: " << e.what() << std::endl;
+                auto bprog = errHandler.toboundfun();
+                stack.push( std::string(e.what()) );
+                Bang::CallIntoSuspendedCoroutine( ctx.thread, bprog ); // ->program_, bprog->upvalues_ );
+//                std::cerr << "Error: " << e.what() << std::endl;
             }
         }
 //        while (interact.bEof);

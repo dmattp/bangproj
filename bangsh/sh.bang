@@ -18,9 +18,14 @@ win.getmaxy! as win-height
 'arraylib' crequire! as array
 'bangnylon' crequire! as nsys
 
-def :win-msg-at = { as y as x
+def :win-msg-at x y = { 
   format! as msg
   x y msg win.mvaddstr!
+}
+
+def :debug = {
+ '                                                ' 0 5 win-msg-at! -- clear out last
+  0 5 win-msg-at!
 }
 
 def :array-erase-to-end a = { as beg
@@ -154,16 +159,92 @@ def :show-stack-clear = {
 
 
 
+
+2 as showhist-col
+
+def :show-hist = {
+  # as ssize
+  0 ssize
+  def! :inner remain = { as nshown
+    -- 0 8 remain '%@ showing stack\n' format! win.mvaddstr!
+    remain 0 > ? {
+      as v
+      0  showhist-col nshown -
+      nshown 9 > ? '' : ' '; nshown v tostring! "%@%@: %@" format!
+      win.mvaddstr!
+      nshown 1 + remain 1 - inner!
+    }
+  }
+}
+
+def :show-hist-clear = {
+  # as ssize
+  0 ssize
+  def! :inner remain = { as nshown
+    -- 0 8 remain '%@ showing stack\n' format! win.mvaddstr!
+    remain 0 > ? {
+      as v
+      0  showhist-col nshown -
+      '                                                              ' win.mvaddstr!
+      nshown 1 + remain 1 - inner!
+    }
+  }
+}
+
+def :rebind varname = {
+   fun thefun = varname thefun rebind-fun!
+}
+
+def :rebind-ndx ndx h = { h.array as array
+   fun = lookup
+}
+
+def :do-history = {
+  'start history' debug!
+  array.new! 0 fun! array ndx = { fun = lookup }
+  def! :new-history h = {
+--    'new-history entered' debug!
+    yield! as msg
+    msg 'new-history got msg="%@"' debug!
+    fun! = {
+      '#' h.array! as nlines
+      msg 'push' string.eq! ?
+        as line (line h.array.append)
+        line nlines 'new-history push line=%@ new-nlines=%@' debug!
+        nlines h rebind-ndx! new-history!
+      : msg 'curr-next' string.eq! ? {
+          h.ndx h.array! -- push current index
+          h.ndx nlines 1 - < ? h.ndx 1 + h rebind-ndx! new-history! -- move index to prev
+                             : h new-history! 
+        }
+      : msg 'curr-prev' string.eq! ? {
+          h.ndx h.array! -- push current index
+          h.ndx 0 > ? h.ndx 1 - h rebind-ndx! new-history! -- move index to prev
+                    : h new-history! 
+        }
+    }
+  }
+}
+do-history coroutine! as the-history
+the-history!
+
+def :handle-error emsg = {
+    emsg 'Error.c01: %s' 0 8 win-msg-at!
+}
+
 ------------------------------------------------------------------
 -- :wait-for-line accepts a string, clears out the last when it's displayed
 ------------------------------------------------------------------
 def :wait-for-line line = {
     line (save-stack!)
     def! :inner prevstack = { as line
+        (line the-history.push)
+--      (line History.append)
+        -- line line-history!
          0 showline-col
          line "Last: %@" format!
        win.mvaddstr!
-       prevstack! line bangsh.eval!
+       prevstack! line handle-error bangsh.eval!
        save-stack! as newstack
        newstack! show-stack!
        yield! -- caller should send line
@@ -180,10 +261,6 @@ wait-for-line coroutine! as handle-line
 -- When line completion is signalled (carriage return) the line is
 -- passed to 'handle-line'.
 ------------------------------------------------------------------
-
-def :rebind varname = {
-   fun thefun = varname thefun rebind-fun!
-}
 
 def :make-edit-state = { as clipboard as cpos
   fun = lookup
@@ -242,7 +319,12 @@ fun! = {
      : c 128 < ? c cp cmdline.insert -- printable characters
                  1 +
      : c 259 = c 16 = or! ? -- Up/Ctrl+P
+         ( 0 cmdline array-erase-to-end!
+           the-history.curr-prev string.to-bytes! cmdline.append)
+         -- the-history.prev
      : c 258 = c 14 = or! ? -- Down/Ctrl+N
+         ( 0 cmdline array-erase-to-end!
+           the-history.curr-next string.to-bytes! cmdline.append)
      : c 418 = ? cmdline find-previous-word! -- M-b, back word
      : c 419 = ? -- M-c, capitalize word
      : c 420 = ? -- M-d, delete word
