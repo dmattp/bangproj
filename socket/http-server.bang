@@ -1,0 +1,110 @@
+-- here's a really great intro to HTTP protocol: http://www.jmarshall.com/easy/http/#http1.1
+
+'127.0.0.1' as server-ip
+4429        as server-port
+
+'stringlib' crequire! as string
+'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+
+def :xml-writer outfun = {
+  fun tag = {
+    fun withfun =
+      '<' tag + '>\n' + outfun!
+      (withfun! # 0 > ? outfun!;)
+      '\n</' tag + '>\n' + outfun!
+  }
+}
+
+def :send-response request sendit cord = {
+  'HTTP/1.1 200 OK\nContent-Type: text/html\n\n' sendit!
+  sendit xml-writer! as xml
+--   '<html><body>\n' sendit!
+  --fun = 'in xmldiv\n'!; xml.div[] --  fun = {
+  xml.html fun = {
+    xml.body fun = {
+      xml.div fun = {
+        xml.p fun = { request.id nylon.uptime! 'session=%@ t=%@' format! } swap!!
+        xml.p fun = { 'here is my response' } swap!! -- format! sendit!
+        xml.p fun = { request.httpVersion request.path request.first-line 'HTTP/%@ ; PATH=%@ fl=%@' format! } swap!!
+        xml.p fun = { nylon.uptime! request.t_beg - 'request handled in %@s' format! } swap!!
+      } swap!!
+    } swap!!
+  } swap!!  
+--   '</body></html>\n' sendit!
+  -- sendit!  
+}
+
+def :handle-session session-id connected cord = {
+  session-id '[s%@] hello, http requester; connection received!\n' print!
+
+  fun! = {
+    true as first-line
+    '/origpath/no.htm' as path
+    '7.7' as httpVersion
+    nylon.uptime! as t_beg
+    session-id as id
+    fun = lookup
+  }
+
+  def! :innerloop the-request = {
+--    the-request.path the-request.httpVersion 'LINE, request state for path [%s] HTTP/%s\n' print!
+
+    fun = connected/getline; cord.asthread!
+    ? as line
+      line string.len! as line-length
+--       session line-length line '[s%@] Received: %@ [%@]\n' print!
+
+      '^GET (.+) HTTP/([%d.]+)' line string.match! ? {
+            as _version as _path
+--            _path _version 'Got request for [%s] HTTP/%s\n' print!
+            _version the-request rebind.httpVersion as newreq
+            _path newreq rebind.path as newreq2
+--            newreq2.path newreq2.httpVersion 'REBIND request for [%s] HTTP/%s\n' print!
+
+            the-request.first-line ? {
+              _version '1.1' = ? 'HTTP/1.1 100 Continue\n\n' connected/send;
+              false newreq2 rebind.first-line innerloop!
+            } : newreq2 innerloop!
+      }
+
+     -- last line in the request is an empty line; build/send response when we see that,
+     -- and close the connection
+      line-length 0 = 
+      ? the-request
+--         fun msg = msg 'Sending [%@]\n' print! msg connected/send;
+         fun msg = msg connected/send;
+         cord send-response! connected /close
+      : the-request innerloop!;
+    : session-id '[s%@] disconnect/error; malformed request?\n' print!
+  }
+--   session '[s%@] terminating\n' print!
+}
+
+
+
+def :run-connect cord = {
+  'bangsocket' crequire! as socket
+  '127.0.0.1' 4429 socket.create! as s
+  s /bindAndListen as listener
+
+  1
+  def! :accept-connection session = {
+    fun= listener /accept; cord.asthread! as connected
+    session connected handle-session nylon.cord! as _
+    session 1 + accept-connection!
+  }
+}
+
+def :timer cord = {
+  1 def! :inner count = {
+    count '[%@] timer cord woke up\n' print!
+    3.0 cord.sleep!
+    count 1 + inner!
+  }
+}
+
+run-connect nylon.cord! as _
+timer nylon.cord! as _
+
+nylon.runloop!
+

@@ -217,7 +217,7 @@ namespace {
 
             if (memfun)
             {
-                auto pushit = NEW_BANGFUN(BangCppFun)( std::bind( memfun, this, std::placeholders::_1 ) );
+                auto pushit = NEW_BANGFUN(BangCppFun, std::bind( memfun, this, std::placeholders::_1 ) );
                 s.push( STATIC_CAST_TO_BANGFUN(pushit) );
             }
         }
@@ -225,7 +225,7 @@ namespace {
 
     void make_window( Bang::Stack& s, const Bang::RunContext& ctx)
     {
-        auto pushit = NEW_BANGFUN(Window)(); //  std::bind( memfun, this, std::placeholders::_1 ) );
+        auto pushit = NEW_BANGFUN(Window); //  std::bind( memfun, this, std::placeholders::_1 ) );
         s.push( STATIC_CAST_TO_BANGFUN(pushit) );
     }
 
@@ -300,6 +300,13 @@ namespace {
 //        return StdFunctionCaller( std::bind( &do_getch_loop, std::placeholders::_1 ) );
     }
 
+    void curgetch( Bang::Stack& stack, const Bang::RunContext& ctx)
+    {
+        auto c = wgetch(stdscr);
+        stack.push( (double)c );
+    }
+
+
     void keypad_( Bang::Stack& s, const Bang::RunContext& ctx)
     {
         keypad( stdscr, s.pop().tobool() );
@@ -315,6 +322,7 @@ namespace {
         const Bang::tfn_primitive p =
             (  str == "refresh"     ? &refresh_
             :  str == "nylon-getch" ? &nylon_getch
+            :  str == "getch" ? &curgetch
             :  str == "make-window" ? &make_window
             :  str == "noecho"      ? &noecho_
             :  str == "raw"         ? &raw_

@@ -153,7 +153,7 @@ void PushBangFromNetProperty
                 else //  if ( Object::ReferenceEquals(property->Value->GetType(),System::DateTime::typeid) )
                 {
                     PSObject^ object = gcnew PSObject( property->Value );
-                    auto bangObject = NEW_BANGFUN(BangPsObject)( object );
+                    auto bangObject = NEW_BANGFUN(BangPsObject, object );
                     s.push( STATIC_CAST_TO_BANGFUN(bangObject) );
                 }
 //                 else
@@ -273,7 +273,7 @@ public:
         int nResults = 0;
         for each (PSObject^ result in results )
         {
-            auto bangObject = NEW_BANGFUN(BangPsObject)( result );
+            auto bangObject = NEW_BANGFUN(BangPsObject, result );
             s.push( STATIC_CAST_TO_BANGFUN(bangObject) );
         }
 //        auto t2 = DateTime::Now.Ticks;

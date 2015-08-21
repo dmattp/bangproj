@@ -2,10 +2,13 @@
 #include "bang.h"
 # include <windows.h>
 # include <iostream>
+#include <map> // for register_thread, unregister_thread
 
 
 //#include "sys/nylon-sysport-eventq.h"
 #include "mwsr-cbq.h"
+
+#include "threadrunner.h"
 
 namespace NylonSysCore
 {
@@ -56,6 +59,7 @@ namespace NylonSysCore
         }
         void wakeup()
         {
+//            std::cerr << "set hEventsAvailable" << std::endl;
             SetEvent( hEventsAvailable );
         }
         void waitonevent()
@@ -69,10 +73,14 @@ namespace NylonSysCore
              // see e.g.,
              // http://blogs.msdn.com/b/oldnewthing/archive/2006/01/26/517849.aspx;
              // be sure all messages are processed before waiting again, see http://blogs.msdn.com/b/oldnewthing/archive/2005/02/17/375307.aspx
+//            std::cerr << "waiteventnylonorsystem" << std::endl;
             auto rc =
                MsgWaitForMultipleObjects
                ( 1, &hEventsAvailable,
-                  FALSE, INFINITE, QS_ALLINPUT
+                  FALSE,
+//                   10, //INFINITE,
+                   INFINITE,
+                   QS_ALLINPUT
                );
 
             // std::cout << "MsgWaitForMultipleObjects rc=" << rc << std::endl;
@@ -86,7 +94,10 @@ namespace NylonSysCore
                    return false;
 
                default:
-                  std::cout << "UnK return from MsgWaitForMultipleObjects=" << rc << std::endl;
+                   // NOTE: I still get timeouts here, sort of routinely e.g. on test program for asthread
+                   // which is _not_ optimal, but it keeps stuff trucking though it adds useless latency that
+                   // could kill throughput in some situations.
+                   // std::cout << "UnK return from MsgWaitForMultipleObjects=" << rc << std::endl;
                   return false;
             }
         }
@@ -268,6 +279,7 @@ namespace NylonSys
             NylonLockBangThreads(false);
         }
     }
+
         
     void addOneShot( Bang::Stack& s, const Bang::RunContext& ctx)
     {
@@ -284,6 +296,7 @@ namespace NylonSys
     {
         runnableThreads_.emplace_back( thread );
     }
+    
     void schedule( Bang::Stack& s, const Bang::RunContext& ctx)
     {
         const Bang::Value& v = s.pop();
@@ -293,6 +306,45 @@ namespace NylonSys
         NylonSysCore::Application::InsertEvent( std::bind( &addRunnableThread, v.tothread() ) );
     }
 
+    void runboundfun( Bang::bangthreadptr_t bthread, Bang::gcptr<Bang::BoundProgram> bp )
+    {
+//        NylonLockBangThreads(true);
+//        std::cerr << "running bound fun=" << bthread.get() << " stk=" << bthread->stack.size() << std::endl;
+//        std::cerr << std::flush;
+//        NylonLockBangThreads(false);
+        
+        Bang::CallIntoSuspendedCoroutine( bthread.get(), bp.get() );
+
+//        NylonLockBangThreads(true);
+//        std::cerr << "returned from bound fun=" << bthread.get() << " stk=" << bthread->stack.size() << std::endl;
+//        std::cerr << std::flush;
+//        NylonLockBangThreads(false);
+        
+        NylonSysCore::Application::InsertEvent( std::bind( &addRunnableThread, bthread ) );
+//        std::cerr << "adding cord to runlist\n";
+    }
+
+    void asthread( Bang::Stack& s, const Bang::RunContext& ctx )
+    {
+        const auto vthread = s.pop();
+        const auto theThread = vthread.tothread();
+        const auto v = s.pop();
+
+        auto bp = v.toboundfunhold();
+
+//        std::cerr << "queuing bound fun=" << theThread.get() << " stk=" << theThread->stack.size() << std::endl;
+//        std::cerr << std::flush;
+        
+        auto cppbound = std::bind( &runboundfun, theThread, bp );
+
+//        std::cerr << "asthread invoked, thread=" << ctx.thread << ", creating threadrunner\n";
+//         NylonLockBangThreads(true);
+//         NylonLockBangThreads(false);
+
+        auto tr = new ThreadRunner( cppbound );
+    }
+
+
     void waitforthread( Bang::Stack& s, const Bang::RunContext& ctx)
     {
         NylonLockBangThreads(false);
@@ -300,27 +352,29 @@ namespace NylonSys
         {
 //            std::cerr << "nylonsys waiting for event\n";
 
-            auto rc = NylonSysCore::Application::WaitNylonSysCoreOrSystem();
-
-            // Sleep(1);
-//            std::cerr << "nylonsys got event rc=" << rc << '\n';
-            
-            if (rc == NylonSysCore::GOT_NYLON_EVENT)
-                NylonSysCore::Application::ProcessEvents();
-            
 //             if (runnableThreads_.size() < 1)
 //                 Sleep(100);
 //             else
             if (runnableThreads_.size() > 0)
             {
+                NylonLockBangThreads(true);
                 const auto thread = runnableThreads_.front();
 //                std::cerr << "got thread=" << thread.get() << "\n";
                 s.push( Bang::Value(thread) );
                 runnableThreads_.erase( runnableThreads_.begin() );
                 break;
             }
+            else
+            {
+                auto rc = NylonSysCore::Application::WaitNylonSysCoreOrSystem();
+
+                // Sleep(1);
+//            std::cerr << "nylonsys got event rc=" << rc << '\n';
+            
+                if (rc == NylonSysCore::GOT_NYLON_EVENT)
+                    NylonSysCore::Application::ProcessEvents();
+            }
         }
-        NylonLockBangThreads(true);
     }
     
     void testSysSleep( Bang::Stack& s, const Bang::RunContext& ctx)
@@ -328,8 +382,30 @@ namespace NylonSys
         int nsleep = (int)(s.pop().tonum()*1000.0);
         Sleep(nsleep);
     }
+
+    static std::map<Bang::Thread*, bool> gActiveThreads;
     
-    void lookup( Bang::Stack    & s, const Bang::RunContext& ctx)
+    void register_thread( Bang::Stack& s, const Bang::RunContext& ctx)
+    {
+        const auto thread = s.pop().tothread();
+        gActiveThreads[ thread.get() ] = true;
+    }
+
+    void unregister_thread( Bang::Stack& s, const Bang::RunContext& ctx)
+    {
+        const auto thread = s.pop().tothread();
+        auto it = gActiveThreads.find( thread.get() );
+        if (it != gActiveThreads.end() )
+            gActiveThreads.erase( it );
+    }
+
+    void have_threads( Bang::Stack& s, const Bang::RunContext& ctx)
+    {
+        s.push( gActiveThreads.empty() ? false : true );
+    }
+
+    
+    void lookup( Bang::Stack & s, const Bang::RunContext& ctx)
     {
         const Bang::Value& v = s.pop();
         if (!v.isstr())
@@ -341,14 +417,20 @@ namespace NylonSys
             :  str == "schedule"      ? &schedule
             :  str == "addOneShot"    ? &addOneShot
             :  str == "uptime"        ? &uptimePrimitive
-            :  str == "testSysSleep"        ? &testSysSleep
+            :  str == "asthread"      ? &asthread
+            :  str == "register-thread"   ? &register_thread
+            :  str == "unregister-thread" ? &unregister_thread
+            :  str == "have-threads" ? &have_threads
+            :  str == "testSysSleep"  ? &testSysSleep
             :  nullptr
             );
+
+//        std::cerr << "nylon lookup invoked, msg=" << str << " memfun=" << p << "\n";
 
         if (p)
             s.push( p );
         else
-            throw std::runtime_error("Math library does not implement" + str);
+            throw std::runtime_error("Math library does not implement" + std::string(str));
     }
     
 } // end namespace Math

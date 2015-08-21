@@ -24,13 +24,14 @@ def :win-msg-at x y = {
 }
 
 def :debug = {
- '                                                ' 0 5 win-msg-at! -- clear out last
-  0 5 win-msg-at!
+ '                                                ' 0 3 win-msg-at! -- clear out last
+  0 3 win-msg-at!
 }
+
 
 def :array-erase-to-end a = { as beg
   def! :inner = {
-    '#' a! beg >
+    a/# beg >
     ? beg a.erase
       inner!
   }
@@ -48,7 +49,7 @@ def :array-erase-range a = { as end as beg
 
 def :array-snip-to-end a = { as beg
   def! :inner = {
-    '#' a! beg >
+    a/# beg >
     ? beg a! -- push it on the stack
       beg a.erase
       inner!
@@ -76,7 +77,7 @@ def :clear-line col = { as end as beg
 def :iswordchar c = {
    c 123 < 
    c 64 >
-   and!
+   /and
 }
 
 def :find-previous-word lineArray = { as startpos -- line string.len! as len
@@ -98,7 +99,7 @@ def :find-previous-word lineArray = { as startpos -- line string.len! as len
 }
 
 def :find-next-word lineArray = {as startpos
-   '#' lineArray! as theEnd
+   lineArray/# as theEnd
    startpos -- theEnd < ? startpos 1 + : theEnd;
    def! :findwordchar currPos = {
       currPos theEnd < ? 
@@ -112,6 +113,14 @@ def :find-next-word lineArray = {as startpos
         iswordchar! ? currPos 1 + untilnonword! : currPos;
       : theEnd
    }
+}
+
+
+
+def :clear-whole-line erow  = {
+    0 erow
+    (32 dup win-width iterate.times! string.from-bytes!)
+    win.mvaddstr!
 }
 
 
@@ -143,15 +152,15 @@ def :show-stack = {
   }
 }
 
-def :show-stack-clear = {
+-- clear 
+def :clear-displayed-stack = {
   # as ssize
   0 ssize
   def! :inner remain = { as nshown
     -- 0 8 remain '%@ showing stack\n' format! win.mvaddstr!
     remain 0 > ? {
       as v
-      0  showstack-col nshown -
-      '                                                              ' win.mvaddstr!
+      showstack-col nshown - clear-whole-line!
       nshown 1 + remain 1 - inner!
     }
   }
@@ -191,13 +200,11 @@ def :show-hist-clear = {
   }
 }
 
-def :rebind varname = {
-   fun thefun = varname thefun rebind-fun!
-}
+--def :rebind varname = {
+--   fun thefun = varname thefun rebind-fun!
+--}
 
-def :rebind-ndx ndx h = { h.array as array
-   fun = lookup
-}
+--def :rebind-ndx ndx h = { h.array as array fun = lookup }
 
 def :do-history = {
   'start history' debug!
@@ -205,21 +212,24 @@ def :do-history = {
   def! :new-history h = {
 --    'new-history entered' debug!
     yield! as msg
-    msg 'new-history got msg="%@"' debug!
+--    msg 'new-history got msg="%@"' debug!
     fun! = {
-      '#' h.array! as nlines
-      msg 'push' string.eq! ?
+      h.array/# as nlines
+      msg 'push' = ? {
         as line (line h.array.append)
-        line nlines 'new-history push line=%@ new-nlines=%@' debug!
-        nlines h rebind-ndx! new-history!
-      : msg 'curr-next' string.eq! ? {
-          h.ndx h.array! -- push current index
-          h.ndx nlines 1 - < ? h.ndx 1 + h rebind-ndx! new-history! -- move index to prev
-                             : h new-history! 
+--        line nlines 'new-history push line=%@ new-nlines=%@' debug!
+        nlines h rebind.ndx new-history!
+      }
+      : nlines 1 < ? '-- no history' h new-history!
+      : msg 'curr-next' = ? {
+          h.ndx nlines 1 - < ? h.ndx 1 + as newndx
+                              newndx h.array!
+                              newndx h rebind.ndx new-history! -- move index to prev
+                             : 'end-of-history' h new-history! 
         }
-      : msg 'curr-prev' string.eq! ? {
+      : msg 'curr-prev' = ? {
           h.ndx h.array! -- push current index
-          h.ndx 0 > ? h.ndx 1 - h rebind-ndx! new-history! -- move index to prev
+          h.ndx 0 > ? h.ndx 1 - h rebind.ndx new-history! -- move index to prev
                     : h new-history! 
         }
     }
@@ -229,8 +239,13 @@ do-history coroutine! as the-history
 the-history!
 
 def :handle-error emsg = {
-    emsg 'Error.c01: %s' 0 8 win-msg-at!
+    emsg 'Error.c01: %s' 0  win-msg-at!
 }
+
+def :clear-error-line = {
+    0 clear-whole-line!
+}
+
 
 ------------------------------------------------------------------
 -- :wait-for-line accepts a string, clears out the last when it's displayed
@@ -240,15 +255,15 @@ def :wait-for-line line = {
     def! :inner prevstack = { as line
         (line the-history.push)
 --      (line History.append)
-        -- line line-history!
-         0 showline-col
-         line "Last: %@" format!
-       win.mvaddstr!
+        -- line line-history!w
+--         showline-col clear-line!
+       showline-col clear-whole-line! 0 showline-col line "Last: %@" format! win.mvaddstr!
+       clear-error-line!
        prevstack! line handle-error bangsh.eval!
        save-stack! as newstack
        newstack! show-stack!
        yield! -- caller should send line
-       (newstack! show-stack-clear!)
+       (newstack! clear-displayed-stack!)
        5 (line string.len! 5+) showline-col clear-line!
        newstack inner!
     }
@@ -262,7 +277,7 @@ wait-for-line coroutine! as handle-line
 -- passed to 'handle-line'.
 ------------------------------------------------------------------
 
-def :make-edit-state = { as clipboard as cpos
+def :make-edit-state cpos clipboard = { 
   fun = lookup
 }
 
@@ -295,10 +310,10 @@ fun! = {
        c 8 = ? { cp 0 > ? cp 1 - cmdline.erase
                           1 - }
      : c 1 = ? drop! 0  -- Ctrl+A
-     : c 2 = c 260 = or! ? 1 -      
+     : c 2 = c 260 = /or ? 1 -      
      : c 4 = ? { cp '#' cmdline! < ? cp cmdline.erase }
      : c 5 = ? drop! '#' cmdline! -- Ctrl+E
-     : c 6 = c 261 = or! ? 1 + -- Ctrl+F
+     : c 6 = c 261 = /or ? 1 + -- Ctrl+F
      : c 11 = ? {
                    prompt-start + '#' cmdline!  prompt-start + cmdline-col clear-line!
                    (cp cmdline array-snip-to-end! string.from-bytes!) as snipped
@@ -318,11 +333,11 @@ fun! = {
      : c 32  < ?  -- discard unhandled control characters
      : c 128 < ? c cp cmdline.insert -- printable characters
                  1 +
-     : c 259 = c 16 = or! ? -- Up/Ctrl+P
+     : c 259 = c 16 = /or ? -- Up/Ctrl+P
          ( 0 cmdline array-erase-to-end!
            the-history.curr-prev string.to-bytes! cmdline.append)
          -- the-history.prev
-     : c 258 = c 14 = or! ? -- Down/Ctrl+N
+     : c 258 = c 14 = /or ? -- Down/Ctrl+N
          ( 0 cmdline array-erase-to-end!
            the-history.curr-next string.to-bytes! cmdline.append)
      : c 418 = ? cmdline find-previous-word! -- M-b, back word
@@ -336,17 +351,22 @@ fun! = {
      : c 441 = ? -- M-y, yank loop
 }
 -- now we reloop, binding the cursor position on the stack back to cp
-editState rebind.cpos! cursor-pos!
+-- drop!
+editState
+rebind.cpos
+cursor-pos!
 
   }
 }
 coroutine! as build-line
 build-line!
 
-def :try-getch self = {
+def :try-getch self-cord = {
     'Bang! Shell, Welcome.\n' print!
     1 def! :loopforever timesCalled = {
-      fun=self.schedule!; curses.nylon-getch! yield! as thechar
+      -- fun=self.schedule!; curses.nylon-getch! yield!
+      fun = curses.getch!; self-cord.asthread! --as the-char
+      as thechar
       -- 0 1 # self.coro thechar 'woke after char, stk=%@ coro=%@ char=%s\n' format! win.mvaddstr!
       thechar 3 = ? (!); -- generates an error (apply with no argument)
       thechar build-line! -- # 0 > ? handle-line!;)
@@ -373,11 +393,9 @@ def :winrefresher col = {
   nylon.cord! as timeloop
 }
 
-
 --timelooper 10 win-height 2 - range!
 -- timelooper 11 15 range!
 -- 20 timelooper!
-
 -- win-height 1 - winrefresher!
 
 nylon.runloop!

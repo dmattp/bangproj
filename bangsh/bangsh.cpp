@@ -114,8 +114,6 @@ namespace Bangsh
     {
         Bang::InteractiveEnvironment interact;
 
-        const char* fname = "/tmp/dostuff.bang";
-
         const auto& errHandler = stack.pop();
         
         ShParsingContext parsectx( interact );

@@ -14,6 +14,6 @@ ifeq (1,$(USE_GC))
  CPPFLAGS_GC=-D USE_GC=1 -I $(DIR_BOEHM_HDR) $(LDFLAGS_GC)
 endif
 
-bangnylon$(EXT_SO): nylonsys.cpp $(DIR_BANG)/bang.h $(DIR_BANG)/bang$(EXT_SO)
+bangnylon$(EXT_SO): nylonsys.cpp $(DIR_BANG)/bang.h $(DIR_BANG)/libbang$(EXT_SO)
 	$(CXX) $(CPPFLAGS) -I$(DIR_BANG) -shared -L $(DIR_BANG) -lbang -o $@ $<
 
