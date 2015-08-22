@@ -18,18 +18,16 @@ def :xml-writer outfun = {
 def :send-response request sendit cord = {
   'HTTP/1.1 200 OK\nContent-Type: text/html\n\n' sendit!
   sendit xml-writer! as xml
---   '<html><body>\n' sendit!
-  --fun = 'in xmldiv\n'!; xml.div[] --  fun = {
-  xml.html fun = {
-    xml.body fun = {
-      xml.div fun = {
-        xml.p fun = { request.id nylon.uptime! 'session=%@ t=%@' format! } swap!!
-        xml.p fun = { 'here is my response' } swap!! -- format! sendit!
-        xml.p fun = { request.httpVersion request.path request.first-line 'HTTP/%@ ; PATH=%@ fl=%@' format! } swap!!
-        xml.p fun = { nylon.uptime! request.t_beg - 'request handled in %@s' format! } swap!!
-      } swap!!
-    } swap!!
-  } swap!!  
+  xml.html [ fun = 
+    xml.body [ fun = 
+      xml.div [ fun = 
+        xml.p [ fun =  request.id nylon.uptime! 'session=%@ t=%@' format! ]
+        xml.p [ fun = 'here is my response' ] 
+        xml.p [ fun = request.httpVersion request.path request.first-line 'HTTP/%@ ; PATH=%@ fl=%@' format! ]
+        xml.p [ fun = nylon.uptime! request.t_beg - 'request handled in %@s' format! ]
+      ]
+    ]
+  ]
 --   '</body></html>\n' sendit!
   -- sendit!  
 }
