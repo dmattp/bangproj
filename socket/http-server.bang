@@ -1,12 +1,14 @@
 -- here's a really great intro to HTTP protocol: http://www.jmarshall.com/easy/http/#http1.1
+-- benchmarking servers with apache-benchmark: http://www.cyberciti.biz/tips/howto-performance-benchmarks-a-web-server.html
 
 '127.0.0.1' as server-ip
+'192.168.1.72' as server-ip
 4429        as server-port
 
 'stringlib' crequire! as string
 'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
 
-def :xml-writer outfun = {
+fun :xml-writer outfun = {
   fun tag = {
     fun withfun =
       '<' tag + '>\n' + outfun!
@@ -15,7 +17,7 @@ def :xml-writer outfun = {
   }
 }
 
-def :send-response request sendit cord = {
+fun :send-response request sendit cord = {
   'HTTP/1.1 200 OK\nContent-Type: text/html\n\n' sendit!
   sendit xml-writer! as xml
   xml.html [ fun = 
@@ -32,7 +34,7 @@ def :send-response request sendit cord = {
   -- sendit!  
 }
 
-def :handle-session session-id connected cord = {
+fun :handle-session session-id connected cord = {
   session-id '[s%@] hello, http requester; connection received!\n' print!
 
   fun! = {
@@ -80,9 +82,9 @@ def :handle-session session-id connected cord = {
 
 
 
-def :run-connect cord = {
+fun :run-connect cord = {
   'bangsocket' crequire! as socket
-  '127.0.0.1' 4429 socket.create! as s
+  server-ip 4429 socket.create! as s
   s /bindAndListen as listener
 
   1
@@ -93,7 +95,7 @@ def :run-connect cord = {
   }
 }
 
-def :timer cord = {
+fun :timer cord = {
   1 def! :inner count = {
     count '[%@] timer cord woke up\n' print!
     3.0 cord.sleep!
