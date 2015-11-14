@@ -1,12 +1,13 @@
 -- here's a really great intro to HTTP protocol: http://www.jmarshall.com/easy/http/#http1.1
 -- benchmarking servers with apache-benchmark: http://www.cyberciti.biz/tips/howto-performance-benchmarks-a-web-server.html
 
-'127.0.0.1' as server-ip
 '192.168.1.72' as server-ip
-4429        as server-port
+'0.0.0.0' as server-ip
+'127.0.0.1' as server-ip
+# 0 > ? : 4428;  as server-port
 
 'stringlib' crequire! as string
-'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+'/home/matt/git/bang/lib/nylon.bang' require! as nylon
 
 fun :xml-writer outfun = {
   fun tag = {
@@ -35,21 +36,13 @@ fun :send-response request sendit cord = {
 }
 
 fun :handle-session session-id connected cord = {
-  session-id '[s%@] hello, http requester; connection received!\n' print!
+--   session-id '[s%@] hello, http requester; connection received!\n' print!
 
-  fun! = {
-    true as first-line
-    '/origpath/no.htm' as path
-    '7.7' as httpVersion
-    nylon.uptime! as t_beg
-    session-id as id
-    fun = lookup
-  }
-
-  def! :innerloop the-request = {
+  fun :innerloop the-request = {
 --    the-request.path the-request.httpVersion 'LINE, request state for path [%s] HTTP/%s\n' print!
 
-    fun = connected/getline; cord.asthread!
+    -- fun = connected/getline; cord.asthread!
+    connected/getline
     ? as line
       line string.len! as line-length
 --       session line-length line '[s%@] Received: %@ [%@]\n' print!
@@ -75,8 +68,20 @@ fun :handle-session session-id connected cord = {
          fun msg = msg connected/send;
          cord send-response! connected /close
       : the-request innerloop!;
-    : session-id '[s%@] disconnect/error; malformed request?\n' print!
+--    : session-id '[s%@] disconnect/error; malformed request?\n' print!
   }
+
+  fun = {
+    fun! = {
+      true as first-line
+      '/origpath/no.htm' as path
+      '7.7' as httpVersion
+      nylon.uptime! as t_beg
+      session-id as id
+      ^bind
+    }
+    innerloop!
+  } cord.asthread!
 --   session '[s%@] terminating\n' print!
 }
 
@@ -84,11 +89,11 @@ fun :handle-session session-id connected cord = {
 
 fun :run-connect cord = {
   'bangsocket' crequire! as socket
-  server-ip 4429 socket.create! as s
+  server-ip server-port socket.create! as s
   s /bindAndListen as listener
 
   1
-  def! :accept-connection session = {
+  fun! :accept-connection session = {
     fun= listener /accept; cord.asthread! as connected
     session connected handle-session nylon.cord! as _
     session 1 + accept-connection!
@@ -96,7 +101,7 @@ fun :run-connect cord = {
 }
 
 fun :timer cord = {
-  1 def! :inner count = {
+  1 fun! :inner count = {
     count '[%@] timer cord woke up\n' print!
     3.0 cord.sleep!
     count 1 + inner!

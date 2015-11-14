@@ -6,8 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <signal.h>
-
-namespace NylonSysCore {
+#include <sys/time.h>
 
    // this does make the assumption that timespec is normalized!
    static bool operator<( const timespec& lhs, const timespec& rhs )
@@ -18,13 +17,20 @@ namespace NylonSysCore {
          return (lhs.tv_sec < rhs.tv_sec);
    }
    
+
+namespace NylonSysCore {
+
+
+   class Application;
+
+
    class Timer
    {
    public:
       static void
       oneShot
       (  const std::function< void(void)>& callback,
-          Milliseconds expirationTime
+          unsigned expirationTime
       )
       {
          new TQTimer( callback, expirationTime );
@@ -140,7 +146,7 @@ namespace NylonSysCore {
          std::function<void(void)> m_callback;
          struct timespec expiry;
       public:
-         TQTimer( const std::function< void(void) >& cb, Milliseconds expirationTime )
+         TQTimer( const std::function< void(void) >& cb, unsigned expirationTime )
          : m_callback( cb )
          {
             struct timespec now;
@@ -149,13 +155,13 @@ namespace NylonSysCore {
             expiry = now;
 
             // add the expirationTime to 'now'
-            if( expirationTime >= Milliseconds(1000) )
+            if( expirationTime >= (1000) )
             {
-               int seconds = expirationTime.to_prim() / 1000;
+               int seconds = expirationTime / 1000;
                expiry.tv_sec += seconds;
             }
             
-            int remain = expirationTime.to_prim() % 1000;
+            int remain = expirationTime % 1000;
             expiry.tv_nsec += remain * 1000000; // ms->nanoseconds
             while( expiry.tv_nsec > 1000*1000000 )
             {
@@ -211,7 +217,9 @@ namespace NylonSysCore {
       }
       setitimer( ITIMER_REAL, &itimer, nullptr );
    }
-            
+
+    Timer::Statics Timer::stTimer;
+    
 }
        
 #endif

@@ -1,6 +1,8 @@
 
 #include "bang.h"
+#if WIN32
 # include <windows.h>
+#endif
 # include <iostream>
 #include <map> // for register_thread, unregister_thread
 
@@ -8,15 +10,11 @@
 //#include "sys/nylon-sysport-eventq.h"
 #include "mwsr-cbq.h"
 
-#include "threadrunner.h"
+#include "nylon-sysport-threaded.h"
 
-namespace NylonSysCore
+#if WIN32
+namespace stdfake
 {
-          enum EEventAvail {
-              GOT_NYLON_EVENT,
-              GOT_SYSTEM_EVENT
-          };
-
     class recursive_mutex
     {
     public:
@@ -44,7 +42,27 @@ namespace NylonSysCore
         CRITICAL_SECTION m_cs;
         recursive_mutex( const recursive_mutex& ); // not implemented; private to prevent copying.
     };
+}
+#else
+# include <mutex>
+# include "nylon-sysport-eventq.h"
+#endif
+
+namespace NylonSysCore
+{
+          enum EEventAvail {
+              GOT_NYLON_EVENT,
+              GOT_SYSTEM_EVENT
+          };
+
+#if WIN32
+    using stdfake::recursive_mutex;
+#else
+    using std::recursive_mutex;
+#endif    
     
+    
+#if WIN32
     class SysportEventQueueBase
     {
     protected:
@@ -104,6 +122,7 @@ namespace NylonSysCore
     private:
         HANDLE hEventsAvailable;
     }; // class SysportEventQueueBase
+#endif 
     
    class Application
    {
@@ -182,6 +201,17 @@ namespace NylonSysCore
       {
          instance().m_eventQueue.InsertEvent( cb );
       }
+      static void* PreAllocateEvent( const std::function<void(void)>& cb )
+      {
+         return instance().m_eventQueue.PreAllocateEvent( cb );
+      }
+
+      static void InsertPreAllocatedEvent( void* thing )
+      {
+         instance().m_eventQueue.InsertPreAllocatedEvent( thing );
+      }
+
+       
        static EEventAvail WaitNylonSysCoreOrSystem()
        {
            return instance().m_eventQueue.WaitNylonSysCoreOrSystem();
@@ -341,7 +371,12 @@ namespace NylonSys
 //         NylonLockBangThreads(true);
 //         NylonLockBangThreads(false);
 
+#if 0        
         auto tr = new ThreadRunner( cppbound );
+#else
+        cppbound();
+#endif 
+        
     }
 
 
@@ -379,8 +414,10 @@ namespace NylonSys
     
     void testSysSleep( Bang::Stack& s, const Bang::RunContext& ctx)
     {
+#if WIN32        
         int nsleep = (int)(s.pop().tonum()*1000.0);
         Sleep(nsleep);
+#endif 
     }
 
     static std::map<Bang::Thread*, bool> gActiveThreads;
