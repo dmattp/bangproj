@@ -7,7 +7,9 @@
 # 0 > ? : 4428;  as server-port
 
 'stringlib' crequire! as string
-'/home/matt/git/bang/lib/nylon.bang' require! as nylon
+
+--'/home/matt/git/bang/lib/nylon.bang' require! as nylon
+'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
 
 fun :xml-writer outfun = {
   fun tag = {

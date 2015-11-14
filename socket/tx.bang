@@ -1,0 +1,24 @@
+
+'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+
+def :thing cord = {
+  'bangsocket' crequire! as socket
+  '127.0.0.1' 4428 socket.create! as s
+  s /bindAndListen as listener
+
+  listener /accept as connected
+  1 connected/recv ? 'msg=[%@]\n' print! : 'got error!\n' print!;
+  # 'leftonstack=%@\n' print!
+
+  1 connected/recv ? 'msg=[%@]\n' print! : 'got error!\n' print!;
+  # 'leftonstack=%@\n' print!
+
+  1 connected/recv ? 'msg=[%@]\n' print! : 'got error!\n' print!;
+  # 'leftonstack=%@\n' print!
+}
+
+thing nylon.cord! as _
+
+nylon.runloop!
+
+'goodbye'

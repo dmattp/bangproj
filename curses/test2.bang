@@ -1,0 +1,135 @@
+
+'release/bangcurses' crequire! as curses
+
+'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+
+curses.initscr!
+curses.raw!
+curses.noecho!
+
+curses.make-window! as win
+win.getmaxx! as win-width
+win.getmaxy! as win-height
+
+win-width win-height "Welcome, window width=%s height=%s\n" print!
+
+'stringlib' crequire! as string
+
+fun = {
+--  # 'stk=%@ enter outer build-line!\n' print!
+  fun! :inner c = {
+    c 'enter :inner cmdline / build-line c=%@!\n' print!
+--    cmdline string.to-bytes! c string.from-bytes! as newcmdline
+--    newcmdline c '>> %@ - last char=%@' format!
+--    win.mvaddstr! win.refresh!
+    --stack!
+    yield!
+    # 'stk=%@ build-line returned from yield\n' print!
+    inner!
+  }
+} coroutine! as build-line
+
+--build-line!
+
+
+'bangnylon' crequire! as nsys
+
+fun :getch-thread cord = {
+  cord.coro 'coro=%s enter getch-thread\n' print!
+  fun! :inner = {
+    fun = curses.getch!; cord.asthread! as the-char
+      -- cord.coro nsys.asthread! yield-nil!
+    the-char 'got char=%@\n' print!
+    the-char 3 = ? (!); -- generate error to abort
+    inner!
+  }
+}
+getch-thread nylon.cord! as get-a-chars
+
+
+
+
+fun :try-getch self = {
+    self.coro 'enter try-getch cord coro=%s!\n' print!
+    -- 100 200 300 400 500
+    -- 'start:' as mytext 
+    1 
+    fun! :loopforever timesCalled = {
+      fun = { as c 
+         # c self.coro timesCalled 'stk=%@ c=%@ self.coro=%s timesCalled=%s got a char callback!\n' print!
+--         c 3 = ? (!); -- blow up
+--         mytext (c string.from-bytes!) + |> mytext
+--         mytext 'x' + |> mytext
+--         # c self.coro timesCalled mytext 'stk=%@ c=%@ self.coro=%s timesCalled=%s got mytext=%s!\n' print!
+         --fun = self.schedule!;
+         --0.001 nsys.addOneShot!
+         c self.schedule!
+--         c build-line!
+      }
+      timesCalled 'timesCalled=%s, coro calling Curses.nylon-getch.\n' print!
+      curses.nylon-getch!
+      # self.coro timesCalled 'stk=%@ coro=%@ before yield; timesCalled=%s, coro yielding\n' print!
+      yield! as thechar
+        0 0
+        # self.coro thechar 'woke after char, stk=%@ coro=%@ char=%s\n' format!
+        win.mvaddstr!
+      0 1 win.move!
+      thechar 3 = ? (!);
+ --      thechar build-line! 'returned from build-line!\n' print!
+--      as thechar
+      -- timesCalled thechar 'timesCalled=%s, coro woke up after got a char=%@!\n' print!
+      -- # timesCalled 'stk=%@ timesCalled=%s, coro woke up after got a char!\n' print!
+      timesCalled 1 + loopforever!
+    }
+}
+
+-- try-getch nylon.cord! as getches
+
+fun :timelooper col = {
+  0.001 -- seconds for delayTime
+  fun self = { as delayTime
+      'enter cord!\n' print!
+      
+      1 
+      fun! :loopforever timesCalled = {
+        0 col
+        nsys.uptime! timesCalled delayTime '%s cord loop called %s times, sleeping %@s!\n' format!
+        win.mvaddstr!
+        0 1 win.move!
+        
+        delayTime self.sleep!
+        timesCalled 1 + loopforever!
+      }
+  }
+  nylon.cord! as timeloop
+}
+
+fun :winrefresher col = {
+  0.010 -- seconds for delayTime
+  fun self = { as delayTime
+      'enter refresh cord!\n' print!
+      1 
+      fun! :loopforever timesCalled = {
+          0 col
+          nsys.uptime! timesCalled delayTime '%s WinRefresh loop called %s times, sleeping %@s!\n' format!
+        win.mvaddstr!
+        win.refresh!
+        delayTime self.sleep!
+        timesCalled 1 + loopforever!
+      }
+  }
+  nylon.cord! as timeloop
+}
+
+'c:/m/n2proj/bang/lib/iterate.bang' require! .range as range
+
+--timelooper 10 win-height 2 - range!
+-- timelooper 11 15 range!
+-- 20 timelooper!
+
+ win-height 1 - winrefresher!
+
+nylon.runloop!
+
+
+

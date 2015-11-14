@@ -1,0 +1,25 @@
+4429 as thePort
+
+'bangsocket' crequire! as socket
+
+thePort socket.create! as s
+s 'test.bang: created socket %s\n' print!
+
+s /bindAndListen as listener
+
+def! :run-connect = {
+  listener /accept as connected
+  
+  'hello, sockteer; send a line.!\n' connected/send
+  '' def! :getline str = {
+     1 connected/recv as c
+     c '\r' = ? str getline! : -- just ignore
+     c '\n' = ? str :
+     str c + getline!
+  } as line
+  line 'Received: [%@]\n' format! connected/send
+  'goodbye, jooby!\n' connected/send
+  run-connect!
+}
+
+-- thePort 'test.bang: socket listening on port=%@\n' print!

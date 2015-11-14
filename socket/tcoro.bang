@@ -25,7 +25,7 @@ fun :handle-session session connected cord = {
   session '[s%@] terminating\n' print!
 }
 
-'/home/matt/git/bang/lib/nylon.bang' require! as nylon
+'../../bang/lib/nylon.bang' require! as nylon
 
 
 fun :run-connect cord = {

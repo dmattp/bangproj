@@ -1,0 +1,35 @@
+def :xml-writer outfun = {
+  fun tag = {
+    fun withfun =
+      '<' tag + '>\n' + outfun!
+      (withfun! # 0 > ? outfun!)
+      '\n</' + tag + '>\n' + outfun!
+  }
+}
+
+def :send-response request sendit = {
+  'HTTP/1.1 200 OK\nContent-Type: text/html\n\n' sendit!
+  sendit xml-writer! as xml
+  xml.html fun = {
+    request.id 0.00 '<body>\nsession=%@ t=%@\n<p>here is my response\n' format! sendit!
+    request.httpVersion request.path request.first-line
+    '<p>HTTP/%@ ; PATH=%@ fl=%@\n' format! sendit!
+    0.123 '<p>request handled in %@s\n' format! sendit!
+    '</body>' sendit!
+  } swap! !
+--   sendit!  
+}
+
+
+
+  fun! = {
+    true as first-line
+    '/origpath/no.htm' as path
+    '7.7' as httpVersion
+    'x000' as t_beg
+    333 as id
+    fun = lookup
+  } as request
+
+
+request fun msg = msg '[%s]\n' print!; send-response!

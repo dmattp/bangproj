@@ -1,4 +1,7 @@
+*~
+#*#
 *.tlog
+trash
 *.manifest
 *.pdb
 *.idb
