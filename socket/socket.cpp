@@ -1,6 +1,15 @@
 //#include "stdafx.h"
+
+#if WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+# include <unistd.h>
+# include <sys/errno.h>
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netdb.h>
+#endif 
 #include <iostream>
 #include <vector>
 #include <iterator>
@@ -14,7 +23,16 @@
 #pragma comment(lib,"Ws2_32.lib")
 
 
+#if WIN32
 #define LOGIT(fmt,...) do { char formatted[32*1024]; sprintf_s( formatted, sizeof(formatted), "[%s:%d %s] - " fmt, shorten(__FILE__), __LINE__, __FUNCTION__, __VA_ARGS__ ); std::cout << formatted << std::endl; } while (0)
+#else
+# define LOGIT(fmt,...) do { char formatted[32*1024]; sprintf( formatted, "[%s:%d %s] - " fmt, shorten(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__ ); std::cout << formatted << std::endl; } while (0)
+typedef unsigned char BYTE;
+typedef int SOCKET;
+static const int INVALID_SOCKET=-1;
+static const int SOCKET_ERROR=-1;
+#define closesocket close
+#endif 
 
 const char *gListeningPort="23130";
 //static const unsigned gTerminalId = 92007542; // serial
@@ -37,7 +55,11 @@ namespace
 
     std::runtime_error LogLastSocketError( const char* pContext )
     {
+#if WIN32        
         const int iError = WSAGetLastError();
+#else
+        const int iError = errno;
+#endif 
         
         if (pContext)
         {
@@ -139,6 +161,11 @@ namespace BNSocket // bang+nylon socket support
         private:
             std::unique_ptr<CSocketish> pSocket_;
             friend class CSocketish;
+            CConnectedSocket( CConnectedSocket&& oSocket )
+            :  pSocket_( std::move( oSocket.pSocket_ ) ),
+               m_oSocket( oSocket.m_oSocket )
+            {
+            }
             CConnectedSocket( CSocketish& oSocket )
             : m_oSocket( oSocket )
             {}
@@ -467,8 +494,10 @@ __declspec(dllexport)
 #endif 
 void bang_open( Bang::Stack* stack, const Bang::RunContext* )
 {
+#if WIN32
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2,2), &wsaData);
+#endif 
     stack->push( &BNSocket::lookup );
 }
 

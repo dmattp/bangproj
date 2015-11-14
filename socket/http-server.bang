@@ -1,13 +1,13 @@
 -- here's a really great intro to HTTP protocol: http://www.jmarshall.com/easy/http/#http1.1
 -- benchmarking servers with apache-benchmark: http://www.cyberciti.biz/tips/howto-performance-benchmarks-a-web-server.html
 
-'127.0.0.1' as server-ip
 '192.168.1.72' as server-ip
+'127.0.0.1' as server-ip
 '0.0.0.0' as server-ip
-4429        as server-port
+# 0 > ? : 4428;  as server-port
 
 'stringlib' crequire! as string
-'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+'/home/matt/git/bang/lib/nylon.bang' require! as nylon
 
 fun :xml-writer outfun = {
   fun tag = {
@@ -89,7 +89,7 @@ fun :handle-session session-id connected cord = {
 
 fun :run-connect cord = {
   'bangsocket' crequire! as socket
-  server-ip 4429 socket.create! as s
+  server-ip server-port socket.create! as s
   s /bindAndListen as listener
 
   1

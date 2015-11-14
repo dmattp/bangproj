@@ -1,12 +1,11 @@
 DIR_BANG?=c:/m/n2proj/bang
-CPPFLAGS += -I./linux-gtk/sys
 
 include $(DIR_BANG)/build/site.mak
 ifeq (,$(BUILD_FOR)) # if site.mak doesn't include a target (linux.mak,win32.mak) default to linux
  include $(DIR_BANG)/build/linux.mak
 endif
 
-all:: bangnylon$(EXT_SO)
+all:: bangsocket$(EXT_SO)
 
 CPPFLAGS += --std=c++11 -O2
 
@@ -15,8 +14,5 @@ ifeq (1,$(USE_GC))
  CPPFLAGS_GC=-D USE_GC=1 -I $(DIR_BOEHM_HDR) $(LDFLAGS_GC)
 endif
 
-nylonsys.o: nylonsys.cpp $(DIR_BANG)/bang.h
-	$(CXX) $(CPPFLAGS) -I$(DIR_BANG) -c $<
-
-bangnylon$(EXT_SO): nylonsys.o $(DIR_BANG)/libbang$(EXT_SO)
-	$(CXX) $< -shared -L $(DIR_BANG) -lbang -lpthread -o $@ 
+bangsocket$(EXT_SO): socket.cpp $(DIR_BANG)/bang.h $(DIR_BANG)/libbang$(EXT_SO)
+	$(CXX) $(CPPFLAGS) -I$(DIR_BANG) -shared -L $(DIR_BANG) -lbang -o $@ $<

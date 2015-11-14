@@ -1,10 +1,10 @@
 
-def :handle-session session connected cord = {
+fun :handle-session session connected cord = {
   session '[s%@] hello, socketeer; send a line!\n' format! connected/send
 
-  def! :innerloop = {
+  fun! :innerloop = {
     ''
-    def! :getline str = {
+    fun! :getline str = {
        fun= 1 connected/recv; cord.asthread! ? { as c
          c '\r' = ? str getline! : -- just ignore CR bytes, wait for LF
          c '\n' = ? str true :
@@ -25,24 +25,28 @@ def :handle-session session connected cord = {
   session '[s%@] terminating\n' print!
 }
 
-'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+'/home/matt/git/bang/lib/nylon.bang' require! as nylon
 
 
-def :run-connect cord = {
+fun :run-connect cord = {
   'bangsocket' crequire! as socket
   '127.0.0.1' 4429 socket.create! as s
   s /bindAndListen as listener
 
+  'entering accept-connectin\n' print!
+
   1
-  def! :accept-connection session = {
-    fun= listener /accept; cord.asthread! as connected
+  fun! :accept-connection session = {
+    session 'entered accept-connection session=%@\n' print!
+    fun= 'listening\n' print! listener /accept 'got one\n' print!
+    ; cord.asthread! as connected
     session connected handle-session nylon.cord! as _
     session 1 + accept-connection!
   }
 }
 
-def :timer cord = {
-  1 def! :inner count = {
+fun :timer cord = {
+  1 fun! :inner count = {
     count '[%@] timer cord woke up\n' print!
     3.0 cord.sleep!
     count 1 + inner!
@@ -53,4 +57,3 @@ run-connect nylon.cord! as _
 timer nylon.cord! as _
 
 nylon.runloop!
-
