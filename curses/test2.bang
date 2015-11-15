@@ -1,7 +1,6 @@
 
-'release/bangcurses' crequire! as curses
-
-'c:/m/n2proj/bang/lib/nylon.bang' require! as nylon
+'../../bang/lib/nylon.bang' require! as nylon
+'bangcurses' crequire! as curses
 
 curses.initscr!
 curses.raw!
@@ -104,6 +103,8 @@ fun :timelooper col = {
   nylon.cord! as timeloop
 }
 
+nsys.uptime! as init-uptime
+
 fun :winrefresher col = {
   0.010 -- seconds for delayTime
   fun self = { as delayTime
@@ -111,7 +112,7 @@ fun :winrefresher col = {
       1 
       fun! :loopforever timesCalled = {
           0 col
-          nsys.uptime! timesCalled delayTime '%s WinRefresh loop called %s times, sleeping %@s!\n' format!
+          nsys.uptime! init-uptime - timesCalled delayTime '%s WinRefresh loop called %s times, sleeping %@s!\n' format!
         win.mvaddstr!
         win.refresh!
         delayTime self.sleep!
@@ -121,7 +122,7 @@ fun :winrefresher col = {
   nylon.cord! as timeloop
 }
 
-'c:/m/n2proj/bang/lib/iterate.bang' require! .range as range
+'../../bang/lib/iterate.bang' require! .range as range
 
 --timelooper 10 win-height 2 - range!
 -- timelooper 11 15 range!

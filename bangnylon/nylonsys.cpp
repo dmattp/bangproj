@@ -371,12 +371,7 @@ namespace NylonSys
 //         NylonLockBangThreads(true);
 //         NylonLockBangThreads(false);
 
-#if 1
         auto tr = new ThreadRunner( cppbound );
-#else
-        cppbound();
-#endif 
-        
     }
 
 

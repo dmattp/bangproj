@@ -2,9 +2,6 @@ DIR_BANG?=c:/m/n2proj/bang
 CPPFLAGS += -I./linux-gtk/sys
 
 include $(DIR_BANG)/build/site.mak
-ifeq (,$(BUILD_FOR)) # if site.mak doesn't include a target (linux.mak,win32.mak) default to linux
- include $(DIR_BANG)/build/linux.mak
-endif
 
 all:: bangnylon$(EXT_SO)
 

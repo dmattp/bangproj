@@ -12,7 +12,8 @@
 #include <string>
 #include <functional>
 
-#include "threadrunner.h"
+//#include "threadrunner.h"
+#include "nylon-sysport-threaded.h"
 
 
 namespace {
@@ -279,12 +280,12 @@ namespace {
     void wait_getch_thread( Bang::Thread* bthread, Bang::Value* v)
     {
         auto c = wgetch(stdscr);
-        NylonLockBangThreads(true);
+	//        NylonLockBangThreads(true);
 //        std::cerr << "C++ running callback\n";
         bthread->stack.push( (double)c );
         Bang::CallIntoSuspendedCoroutine( bthread, v->toboundfun() );
 //        std::cerr << "C++ returned from callback\n";
-        NylonLockBangThreads(false);
+//        NylonLockBangThreads(false);
         delete v;
     };
 
